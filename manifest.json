@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "Jira Card to Clipboard",
+  "version": "1.0.0",
+  "description": "Copies the open Jira card (key, link, title, description, attachments) as Markdown, ready to paste into Claude.",
+  "action": {
+    "default_title": "Copy Jira card as Markdown"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": ["activeTab", "scripting", "clipboardWrite"]
+}
