@@ -1,0 +1,632 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Install Guide</title>
+<meta name="description" content="Installation guide for the Jira Card to Clipboard browser extension.">
+<link rel="icon" type="image/png" href="icons/icon32.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --canvas: #F4F1FA;
+    --foreground: #332F3A;
+    --muted: #635F69;
+    --accent: #7C3AED;
+    --accent-light: #A78BFA;
+    --pink: #DB2777;
+    --sky: #0EA5E9;
+    --green: #10B981;
+    --amber: #F59E0B;
+    --input-bg: #EFEBF5;
+    --font-heading: "Nunito", sans-serif;
+    --font-body: "DM Sans", sans-serif;
+    --shadow-card:
+      16px 16px 32px rgba(160, 150, 180, 0.2),
+      -10px -10px 24px rgba(255, 255, 255, 0.9),
+      inset 6px 6px 12px rgba(139, 92, 246, 0.03),
+      inset -6px -6px 12px rgba(255, 255, 255, 1);
+    --shadow-card-hover:
+      22px 22px 44px rgba(160, 150, 180, 0.28),
+      -12px -12px 28px rgba(255, 255, 255, 0.95),
+      inset 6px 6px 12px rgba(139, 92, 246, 0.03),
+      inset -6px -6px 12px rgba(255, 255, 255, 1);
+    --shadow-button:
+      12px 12px 24px rgba(139, 92, 246, 0.3),
+      -8px -8px 16px rgba(255, 255, 255, 0.4),
+      inset 4px 4px 8px rgba(255, 255, 255, 0.4),
+      inset -4px -4px 8px rgba(0, 0, 0, 0.1);
+    --shadow-button-hover:
+      16px 16px 32px rgba(139, 92, 246, 0.38),
+      -8px -8px 16px rgba(255, 255, 255, 0.5),
+      inset 4px 4px 8px rgba(255, 255, 255, 0.4),
+      inset -4px -4px 8px rgba(0, 0, 0, 0.1);
+    --shadow-pressed:
+      inset 10px 10px 20px #d9d4e3,
+      inset -10px -10px 20px #ffffff;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--canvas);
+    color: var(--foreground);
+    font-family: var(--font-body);
+    font-weight: 500;
+    line-height: 1.625;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, .num-orb, .brand { font-family: var(--font-heading); }
+
+  /* ---------- floating background blobs ---------- */
+  .blobs { pointer-events: none; position: fixed; inset: 0; overflow: hidden; z-index: -1; }
+  .blob { position: absolute; width: 60vh; height: 60vh; border-radius: 50%; filter: blur(64px); }
+  .blob-1 { background: rgba(139, 92, 246, 0.12); top: -10%; left: -10%; animation: clay-float 8s ease-in-out infinite; }
+  .blob-2 { background: rgba(236, 72, 153, 0.10); top: 20%; right: -12%; animation: clay-float-delayed 10s ease-in-out infinite; animation-delay: 2s; }
+  .blob-3 { background: rgba(14, 165, 233, 0.10); bottom: -15%; left: 25%; animation: clay-float-slow 12s ease-in-out infinite; animation-delay: 4s; }
+
+  .wrap { max-width: 72rem; margin: 0 auto; padding: 0 20px; }
+
+  /* ---------- nav ---------- */
+  .nav {
+    position: sticky;
+    top: 16px;
+    z-index: 100;
+    margin-top: 16px;
+  }
+  .nav-pill {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 64px;
+    padding: 0 16px 0 20px;
+    border-radius: 32px;
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow: var(--shadow-card);
+  }
+  @media (min-width: 640px) { .nav-pill { height: 76px; border-radius: 38px; padding: 0 20px 0 28px; } }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-weight: 900;
+    font-size: 1.05rem;
+    letter-spacing: -0.01em;
+  }
+  .brand img { width: 36px; height: 36px; border-radius: 12px; box-shadow: 6px 6px 14px rgba(139, 92, 246, 0.3); }
+  .nav-gh {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 44px;
+    padding: 0 20px;
+    border-radius: 20px;
+    background: #fff;
+    color: var(--foreground);
+    font-family: var(--font-heading);
+    font-weight: 800;
+    font-size: 0.9rem;
+    text-decoration: none;
+    box-shadow: var(--shadow-button);
+    transition: all 200ms ease;
+  }
+  .nav-gh:hover { transform: translateY(-2px); box-shadow: var(--shadow-button-hover); }
+  .nav-gh:active { transform: scale(0.92); box-shadow: var(--shadow-pressed); }
+  .nav-gh svg { width: 18px; height: 18px; fill: var(--accent); }
+
+  /* ---------- hero ---------- */
+  .hero { padding: 72px 0 48px; text-align: center; }
+  @media (min-width: 768px) { .hero { padding: 96px 0 64px; } }
+  .hero-icon {
+    width: 96px;
+    height: 96px;
+    border-radius: 28px;
+    margin: 0 auto 28px;
+    display: block;
+    box-shadow: var(--shadow-button);
+    animation: clay-float-slow 12s ease-in-out infinite;
+  }
+  .hero .eyebrow {
+    display: inline-block;
+    padding: 8px 20px;
+    border-radius: 999px;
+    background: rgba(124, 58, 237, 0.1);
+    color: var(--accent);
+    font-family: var(--font-heading);
+    font-weight: 800;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-bottom: 20px;
+  }
+  h1 {
+    font-weight: 900;
+    font-size: clamp(2.6rem, 7vw, 5rem);
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    max-width: 48rem;
+    margin: 0 auto;
+  }
+  h1 .grad {
+    background: linear-gradient(100deg, var(--foreground) 10%, var(--accent) 55%, var(--pink) 95%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .hero p.sub {
+    margin: 24px auto 0;
+    max-width: 38rem;
+    color: var(--muted);
+    font-size: clamp(1rem, 2vw, 1.2rem);
+  }
+  .cta-row {
+    margin-top: 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    align-items: center;
+    justify-content: center;
+  }
+  @media (min-width: 640px) { .cta-row { flex-direction: row; } }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    height: 60px;
+    padding: 0 34px;
+    border-radius: 20px;
+    font-family: var(--font-heading);
+    font-weight: 800;
+    font-size: 1.02rem;
+    letter-spacing: 0.01em;
+    text-decoration: none;
+    transition: all 200ms ease;
+    width: 100%;
+    max-width: 340px;
+  }
+  @media (min-width: 640px) { .btn { width: auto; } }
+  .btn svg { width: 20px; height: 20px; fill: currentColor; }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent-light), var(--accent));
+    color: #fff;
+    box-shadow: var(--shadow-button);
+  }
+  .btn-primary:hover { transform: translateY(-4px); box-shadow: var(--shadow-button-hover); }
+  .btn-secondary {
+    background: #fff;
+    color: var(--foreground);
+    box-shadow: var(--shadow-button);
+  }
+  .btn-secondary:hover { transform: translateY(-4px); box-shadow: var(--shadow-button-hover); }
+  .btn:active { transform: scale(0.92); box-shadow: var(--shadow-pressed); }
+  .btn:focus-visible, .nav-gh:focus-visible, summary:focus-visible, a:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.3), var(--shadow-button);
+  }
+
+  .hero .pills {
+    margin-top: 36px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+  }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(12px);
+    box-shadow: var(--shadow-card);
+    font-family: var(--font-heading);
+    font-weight: 800;
+    font-size: 0.85rem;
+    transition: all 300ms ease;
+  }
+  .pill:hover { transform: translateY(-4px); }
+  .pill .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .dot-green { background: var(--green); }
+  .dot-violet { background: var(--accent); }
+  .dot-sky { background: var(--sky); }
+
+  /* ---------- sections ---------- */
+  section { padding: 56px 0; }
+  .section-head { text-align: center; margin-bottom: 44px; }
+  h2 {
+    font-weight: 900;
+    font-size: clamp(1.9rem, 4.5vw, 3rem);
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+  }
+  .section-sub { color: var(--muted); font-size: 1.05rem; margin-top: 10px; }
+
+  /* ---------- install steps (bento-ish) ---------- */
+  .steps { display: grid; grid-template-columns: 1fr; gap: 24px; }
+  @media (min-width: 768px) { .steps { grid-template-columns: repeat(2, 1fr); } }
+  @media (min-width: 1024px) {
+    .steps { grid-template-columns: repeat(6, 1fr); }
+    .steps .card:nth-child(1) { grid-column: span 3; }
+    .steps .card:nth-child(2) { grid-column: span 3; }
+    .steps .card:nth-child(3) { grid-column: span 2; }
+    .steps .card:nth-child(4) { grid-column: span 2; }
+    .steps .card:nth-child(5) { grid-column: span 2; }
+  }
+
+  .card {
+    position: relative;
+    border-radius: 32px;
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow: var(--shadow-card);
+    padding: 28px;
+    transition: all 500ms ease;
+  }
+  @media (min-width: 640px) { .card { padding: 32px; } }
+  .card:hover { transform: translateY(-8px); box-shadow: var(--shadow-card-hover); }
+
+  .num-orb {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-weight: 900;
+    font-size: 1.3rem;
+    margin-bottom: 18px;
+    box-shadow: 8px 8px 18px rgba(139, 92, 246, 0.25), -4px -4px 10px rgba(255, 255, 255, 0.7);
+    transition: transform 300ms ease;
+  }
+  .card:hover .num-orb { transform: scale(1.1); }
+  .orb-violet { background: linear-gradient(135deg, #a78bfa, #7c3aed); }
+  .orb-pink { background: linear-gradient(135deg, #f472b6, #db2777); }
+  .orb-sky { background: linear-gradient(135deg, #38bdf8, #0284c7); }
+  .orb-green { background: linear-gradient(135deg, #34d399, #059669); }
+  .orb-amber { background: linear-gradient(135deg, #fbbf24, #d97706); }
+
+  .card h3 { font-weight: 800; font-size: 1.3rem; margin-bottom: 8px; }
+  .card p { color: var(--muted); font-size: 0.98rem; }
+  .card a { color: var(--accent); font-weight: 700; }
+
+  code {
+    font-family: "SF Mono", "Cascadia Code", Consolas, monospace;
+    font-size: 0.85em;
+    background: var(--input-bg);
+    color: var(--accent);
+    font-weight: 700;
+    padding: 2px 10px;
+    border-radius: 10px;
+    box-shadow: inset 3px 3px 6px #ddd7e8, inset -3px -3px 6px #ffffff;
+    white-space: nowrap;
+  }
+
+  /* ---------- usage ---------- */
+  .usage { display: grid; grid-template-columns: 1fr; gap: 24px; }
+  @media (min-width: 1024px) { .usage { grid-template-columns: repeat(3, 1fr); } }
+  .toast-demo {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 16px;
+    background: linear-gradient(135deg, #34d399, #059669);
+    color: #fff;
+    font-family: var(--font-heading);
+    font-weight: 800;
+    font-size: 0.9rem;
+    padding: 12px 22px;
+    border-radius: 18px;
+    box-shadow: 10px 10px 22px rgba(16, 185, 129, 0.3), -6px -6px 14px rgba(255, 255, 255, 0.6);
+  }
+
+  /* ---------- output ---------- */
+  .output-card {
+    border-radius: 40px;
+    background: rgba(255, 255, 255, 0.75);
+    backdrop-filter: blur(16px);
+    box-shadow: var(--shadow-card);
+    padding: 20px;
+  }
+  @media (min-width: 640px) { .output-card { padding: 28px; } }
+  .output-well {
+    border-radius: 24px;
+    background: var(--input-bg);
+    box-shadow: var(--shadow-pressed);
+    padding: 24px 28px;
+    overflow-x: auto;
+  }
+  .output-well pre {
+    font-family: "SF Mono", "Cascadia Code", Consolas, monospace;
+    font-size: 0.85rem;
+    line-height: 1.7;
+    color: var(--foreground);
+  }
+  .output-well .c-vio { color: var(--accent); font-weight: 700; }
+  .output-well .c-pink { color: var(--pink); font-weight: 700; }
+  .output-well .c-sky { color: #0369a1; }
+  .output-well .c-dim { color: var(--muted); }
+  .output-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+    padding: 0 8px;
+  }
+  .output-label .mini-orb {
+    width: 34px; height: 34px; border-radius: 12px;
+    background: linear-gradient(135deg, #a78bfa, #7c3aed);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 5px 5px 12px rgba(139, 92, 246, 0.3);
+  }
+  .output-label .mini-orb svg { width: 16px; height: 16px; fill: #fff; }
+  .output-label span { font-family: var(--font-heading); font-weight: 800; font-size: 0.95rem; }
+
+  /* ---------- faq ---------- */
+  .faq { display: grid; gap: 18px; max-width: 46rem; margin: 0 auto; }
+  .faq details {
+    border-radius: 24px;
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(12px);
+    box-shadow: var(--shadow-card);
+    transition: all 300ms ease;
+    overflow: hidden;
+  }
+  .faq details:hover { transform: translateY(-4px); }
+  .faq details[open] { background: var(--input-bg); box-shadow: var(--shadow-pressed); transform: none; }
+  .faq summary {
+    cursor: pointer;
+    padding: 20px 26px;
+    font-family: var(--font-heading);
+    font-weight: 800;
+    font-size: 1rem;
+    min-height: 44px;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    border-radius: 24px;
+  }
+  .faq summary::-webkit-details-marker { display: none; }
+  .faq summary::after {
+    content: "+";
+    flex-shrink: 0;
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #a78bfa, #7c3aed);
+    color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 900;
+    box-shadow: 4px 4px 10px rgba(139, 92, 246, 0.3);
+    transition: transform 300ms ease;
+  }
+  .faq details[open] summary::after { transform: rotate(45deg); }
+  .faq details p { padding: 0 26px 22px; color: var(--muted); font-size: 0.95rem; }
+
+  /* ---------- footer ---------- */
+  footer { padding: 48px 0 56px; text-align: center; }
+  .footer-card {
+    border-radius: 32px;
+    background: rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(12px);
+    box-shadow: var(--shadow-card);
+    padding: 28px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+  .footer-card img { width: 44px; height: 44px; border-radius: 14px; box-shadow: 6px 6px 14px rgba(139, 92, 246, 0.3); }
+  .footer-card .t { font-family: var(--font-heading); font-weight: 800; }
+  .footer-card .s { color: var(--muted); font-size: 0.9rem; }
+  .footer-card a { color: var(--accent); font-weight: 700; }
+
+  /* ---------- animation ---------- */
+  @keyframes clay-float {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50% { transform: translateY(-20px) rotate(2deg); }
+  }
+  @keyframes clay-float-delayed {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50% { transform: translateY(-15px) rotate(-2deg); }
+  }
+  @keyframes clay-float-slow {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50% { transform: translateY(-12px) rotate(3deg); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="blobs" aria-hidden="true">
+  <div class="blob blob-1"></div>
+  <div class="blob blob-2"></div>
+  <div class="blob blob-3"></div>
+</div>
+
+<div class="wrap nav">
+  <div class="nav-pill">
+    <div class="brand">
+      <img src="icons/icon48.png" alt="">
+      Jira Card to Clipboard
+    </div>
+    <a class="nav-gh" href="https://github.com/kt-tnbns/jira-copy-extension" target="_blank" rel="noopener">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+      GitHub
+    </a>
+  </div>
+</div>
+
+<main>
+  <div class="wrap">
+
+    <section class="hero">
+      <img class="hero-icon" src="icons/icon128.png" alt="Extension icon: a white terminal prompt on a soft violet tile">
+      <div><span class="eyebrow">Browser extension</span></div>
+      <h1>Your Jira card,<br><span class="grad">one squishy click away</span></h1>
+      <p class="sub">
+        Copy the whole card — key, link, title, full description with Expectation and
+        Test&nbsp;Case (AC) sections, attachment links — as clean Markdown. Paste it
+        straight into Claude.
+      </p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="https://github.com/kt-tnbns/jira-copy-extension/archive/refs/heads/main.zip">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M7.47 10.78a.75.75 0 0 0 1.06 0l3.75-3.75a.75.75 0 0 0-1.06-1.06L8.75 8.44V1.75a.75.75 0 0 0-1.5 0v6.69L4.78 5.97a.75.75 0 0 0-1.06 1.06l3.75 3.75zM3.75 13a.75.75 0 0 0 0 1.5h8.5a.75.75 0 0 0 0-1.5h-8.5z"/></svg>
+          Download .zip
+        </a>
+        <a class="btn btn-secondary" href="https://github.com/kt-tnbns/jira-copy-extension" target="_blank" rel="noopener">View source on GitHub</a>
+      </div>
+      <div class="pills">
+        <span class="pill"><span class="dot dot-green"></span>No API token</span>
+        <span class="pill"><span class="dot dot-violet"></span>Uses your session</span>
+        <span class="pill"><span class="dot dot-sky"></span>Chrome / Chromium</span>
+      </div>
+    </section>
+
+    <section id="install">
+      <div class="section-head">
+        <h2>Install in five soft steps</h2>
+        <p class="section-sub">About thirty seconds, no build tools, nothing to sign up for.</p>
+      </div>
+      <div class="steps">
+        <div class="card">
+          <div class="num-orb orb-violet">1</div>
+          <h3>Download &amp; unzip</h3>
+          <p>Grab the <a href="https://github.com/kt-tnbns/jira-copy-extension/archive/refs/heads/main.zip">.zip from GitHub</a> (or clone the <a href="https://github.com/kt-tnbns/jira-copy-extension" target="_blank" rel="noopener">repo</a>) and unzip it somewhere permanent — the browser loads the extension from this folder, so don't delete it.</p>
+        </div>
+        <div class="card">
+          <div class="num-orb orb-pink">2</div>
+          <h3>Open the extensions page</h3>
+          <p>In Chrome (or any Chromium browser), go to <code>chrome://extensions</code> — type it in the address bar and press Enter.</p>
+        </div>
+        <div class="card">
+          <div class="num-orb orb-sky">3</div>
+          <h3>Enable developer mode</h3>
+          <p>Flip the <code>Developer mode</code> switch in the top-right corner of the page.</p>
+        </div>
+        <div class="card">
+          <div class="num-orb orb-green">4</div>
+          <h3>Load unpacked</h3>
+          <p>Click <code>Load unpacked</code> and select the unzipped folder — the one containing <code>manifest.json</code>.</p>
+        </div>
+        <div class="card">
+          <div class="num-orb orb-amber">5</div>
+          <h3>Pin the button</h3>
+          <p>Click the puzzle-piece icon in the toolbar and pin the extension — look for <img src="icons/icon16.png" alt="" width="16" height="16" style="vertical-align: -2px; border-radius: 4px;"> — so it's always one click away.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="use">
+      <div class="section-head">
+        <h2>Then, every day</h2>
+        <p class="section-sub">Card on screen → one click → paste into Claude.</p>
+      </div>
+      <div class="usage">
+        <div class="card">
+          <div class="num-orb orb-violet">1</div>
+          <h3>Open a card</h3>
+          <p>Any issue page (<code>/browse/PROJ-123</code>) or a board with a card selected. You must be logged in to Jira in that tab.</p>
+        </div>
+        <div class="card">
+          <div class="num-orb orb-pink">2</div>
+          <h3>Click the button</h3>
+          <p>Hit the pinned toolbar button and watch for the confirmation:</p>
+          <span class="toast-demo">✓ Copied PROJ-123</span>
+        </div>
+        <div class="card">
+          <div class="num-orb orb-sky">3</div>
+          <h3>Paste into Claude</h3>
+          <p>The clipboard now holds the full card as Markdown. Paste it into the chat and describe what you want done.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="output">
+      <div class="section-head">
+        <h2>What lands on your clipboard</h2>
+        <p class="section-sub">Clean Markdown, structure intact — pressed right into the page below.</p>
+      </div>
+      <div class="output-card">
+        <div class="output-label">
+          <span class="mini-orb"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5.75 1a.75.75 0 0 0-.75.75V3h-1A1.75 1.75 0 0 0 2.25 4.75v8.5c0 .97.78 1.75 1.75 1.75h8c.97 0 1.75-.78 1.75-1.75v-8.5A1.75 1.75 0 0 0 12 3h-1V1.75a.75.75 0 0 0-.75-.75h-4.5zM6.5 3V2.5h3V3h-3z"/></svg></span>
+          <span>clipboard.md</span>
+        </div>
+        <div class="output-well">
+<pre><span class="c-vio"># PROJ-123: Checkout button unresponsive on mobile</span>
+
+<span class="c-pink">**Link:**</span> <span class="c-sky">https://your-site.atlassian.net/browse/PROJ-123</span>
+
+<span class="c-vio">## Description</span>
+
+<span class="c-pink">### Expectation</span>
+Tapping “Pay now” submits the order within 2s...
+
+<span class="c-pink">### Test Case (AC)</span>
+<span class="c-dim">- [ ] tap on iOS Safari → order submitted
+- [ ] tap on Android Chrome → order submitted</span>
+
+<span class="c-vio">## Attachments</span>
+<span class="c-dim">- screen-recording.mp4 (2.1 MB) — &lt;direct URL&gt;</span></pre>
+        </div>
+      </div>
+    </section>
+
+    <section id="troubleshoot">
+      <div class="section-head">
+        <h2>If something squeaks</h2>
+        <p class="section-sub">The usual fixes, in order of likelihood.</p>
+      </div>
+      <div class="faq">
+        <details>
+          <summary>Nothing happens when I click the button</summary>
+          <p>The button only acts on <code>*.atlassian.net</code> tabs. Make sure the active tab is your Jira site and the page URL contains an issue key (<code>/browse/PROJ-123</code> or <code>?selectedIssue=PROJ-123</code>).</p>
+        </details>
+        <details>
+          <summary>Red toast: “Jira API error 401”</summary>
+          <p>Your Jira session expired in that tab. Reload the page, log in again, then click the button once more.</p>
+        </details>
+        <details>
+          <summary>Red toast: “No Jira card found in this URL”</summary>
+          <p>You're on a board or backlog view without a card selected. Click a card so it opens (the URL gains <code>selectedIssue=</code>), then retry.</p>
+        </details>
+        <details>
+          <summary>Attachment URLs don't open for Claude</summary>
+          <p>Attachment links require your Jira login, so Claude can't fetch them itself. Drag the actual image or file into the chat alongside the pasted text when it matters.</p>
+        </details>
+        <details>
+          <summary>The extension disappeared after a browser update</summary>
+          <p>Unpacked extensions stay installed, but if it's gone, repeat the install steps — the folder on disk is the source of truth, nothing else to rebuild.</p>
+        </details>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="footer-card">
+      <img src="icons/icon48.png" alt="">
+      <div class="t">Jira Card to Clipboard</div>
+      <div class="s">Local unpacked extension · no data leaves your browser · <a href="https://github.com/kt-tnbns/jira-copy-extension" target="_blank" rel="noopener">source on GitHub</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
